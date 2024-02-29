@@ -1,5 +1,5 @@
-﻿using System.Net.Sockets;
-using System.Text;
+﻿using System.IO;
+using System.Net.Sockets;
 
 namespace _1_client
 {
@@ -8,21 +8,67 @@ namespace _1_client
         static async Task Main(string[] args)
         {
             var tcpClient = new TcpClient();
-            await tcpClient.ConnectAsync("127.0.0.1", 55555);
-            
-
-            while (true)
+            StreamReader reader = null; 
+            StreamWriter writer = null;
+            try
             {
-                NetworkStream netStream = tcpClient.GetStream();
-                string message = Console.ReadLine()!;
-                var request = Encoding.UTF8.GetBytes(message);
-                await netStream.WriteAsync(request);
+                
+                await tcpClient.ConnectAsync("127.0.0.1", 55555);
+                reader = new StreamReader(tcpClient.GetStream());
+                writer = new StreamWriter(tcpClient.GetStream());
 
-                byte[] response = new byte[256];
-                int read = await netStream.ReadAsync(response);
+                Console.WriteLine("Введите имя");
+                string name = Console.ReadLine()!;
 
-                Console.WriteLine($"{Encoding.UTF8.GetString(response, 0, read)}");
+                Task.Run(() => Receive(reader));
+                await Send(writer, name);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            finally
+            {
+                reader.Close();
+                writer.Close();
+                tcpClient.Close();
+            }
+
+            
+            async Task Receive(StreamReader reader)
+            {
+                while (true)
+                {
+                    try
+                    {
+                        string answer = await reader.ReadLineAsync();
+                        if (string.IsNullOrEmpty(answer))
+                            return;
+                        Console.WriteLine(answer);
+                    }
+                    catch
+                    {
+                        
+                    }
+                }
+            }
+
+            async Task Send(StreamWriter writer, string name)
+            {
+                await writer.WriteLineAsync(name);
+                await writer.FlushAsync();
+
+                while (true)
+                {
+                    string message = Console.ReadLine()!;
+                    await writer.WriteLineAsync(message);
+                    await writer.FlushAsync();
+                    if (message == "exit")
+                        return;
+                }
             }
         }
+
+
     }
 }
