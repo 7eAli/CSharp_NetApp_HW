@@ -1,12 +1,8 @@
-﻿using System.Collections.Concurrent;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
-using System.Reflection.PortableExecutable;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
 
 namespace _1_server
-{
+{    
     internal class Program
     {
         static async Task Main(string[] args)
@@ -49,6 +45,8 @@ namespace _1_server
         List<ClientInfo> clients = new List<ClientInfo> { };
         public async Task Run()
         {
+            CancellationTokenSource cts = new CancellationTokenSource();
+            CancellationToken token = cts.Token;
             try
             {
                 _listener.Start();
@@ -58,8 +56,14 @@ namespace _1_server
                 {
                     var tcpClient = await _listener.AcceptTcpClientAsync();
                     ClientInfo client = new ClientInfo(id++, tcpClient, this);                    
-                    clients.Add(client);
+                    clients.Add(client);                    
                     Task.Run(() => ProcessClient(client));
+                    bool res = await Task.Run(() => ServerMessages(token));
+                    if (res)
+                    {
+                        cts.Cancel();                        
+                        return;
+                    }
                 }
             }
             catch
@@ -68,10 +72,10 @@ namespace _1_server
             }
             finally
             {
-
+                Console.WriteLine("Сервер остановлен 2");
             }
-        }        
-
+        }    
+        
         public async Task ProcessClient(ClientInfo client)
         {            
             string? userName = await client.reader.ReadLineAsync();
@@ -128,6 +132,20 @@ namespace _1_server
         {
             clients.Remove(client);
             client.Close();
+        }
+
+        public async Task<bool> ServerMessages(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                string globalMsg = await Console.In.ReadLineAsync();
+                await Console.Out.WriteLineAsync(globalMsg);
+                if (globalMsg == "exit")
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }
