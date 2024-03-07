@@ -37,12 +37,22 @@ namespace _1_server
         }
     }
 
+    public class ClientInfoFactory
+    {
+        public ClientInfo CreateClientInfo(long id, TcpClient tcpClient, ChatServer chatServer)
+        {
+            return new ClientInfo(id, tcpClient, chatServer);
+        }
+    }
+
     public class ChatServer
     {
         long id = 1;
         TcpListener _listener = new TcpListener(IPAddress.Any, 55555);
 
         List<ClientInfo> clients = new List<ClientInfo> { };
+
+        ClientInfoFactory clientInfoFactory = new ClientInfoFactory();
         public async Task Run()
         {
             CancellationTokenSource cts = new CancellationTokenSource();
@@ -52,17 +62,16 @@ namespace _1_server
                 _listener.Start();
                 await Console.Out.WriteLineAsync("Сервер запущен");
 
-                while (true)
+                while (!token.IsCancellationRequested)
                 {
                     var tcpClient = await _listener.AcceptTcpClientAsync();
-                    ClientInfo client = new ClientInfo(id++, tcpClient, this);                    
+                    ClientInfo client = clientInfoFactory.CreateClientInfo(id++, tcpClient, this);
                     clients.Add(client);                    
                     Task.Run(() => ProcessClient(client));
                     bool res = await Task.Run(() => ServerMessages(token));
                     if (res)
                     {
-                        cts.Cancel();                        
-                        return;
+                        cts.Cancel();                                                
                     }
                 }
             }
@@ -72,7 +81,7 @@ namespace _1_server
             }
             finally
             {
-                Console.WriteLine("Сервер остановлен 2");
+                Console.WriteLine("Сервер остановлен");
             }
         }    
         
