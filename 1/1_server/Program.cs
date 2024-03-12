@@ -67,12 +67,14 @@ namespace _1_server
                     var tcpClient = await _listener.AcceptTcpClientAsync();
                     ClientInfo client = clientInfoFactory.CreateClientInfo(id++, tcpClient, this);
                     clients.Add(client);                    
-                    Task.Run(() => ProcessClient(client));
-                    bool res = await Task.Run(() => ServerMessages(token));
-                    if (res)
-                    {
-                        cts.Cancel();                                                
-                    }
+                    Task.Run(() => ProcessClient(client, token));
+                    Task.Run(() => ServerMessages(token, cts));
+                    //bool res = Task.Run(() => ServerMessages(token)).Result;
+                    //if (res)
+                    //{
+                    //    cts.Cancel();                                                
+                    //}
+                    
                 }
             }
             catch
@@ -85,13 +87,13 @@ namespace _1_server
             }
         }    
         
-        public async Task ProcessClient(ClientInfo client)
+        public async Task ProcessClient(ClientInfo client, CancellationToken token)
         {            
             string? userName = await client.reader.ReadLineAsync();
             string? message = $"{userName} вошел в чат";            
             await client.chatServer.BroadcastMessageAsync(message, client.id);
             Console.WriteLine(message);            
-            while (true)
+            while (!token.IsCancellationRequested)
             {
                 try
                 {
@@ -143,18 +145,31 @@ namespace _1_server
             client.Close();
         }
 
-        public async Task<bool> ServerMessages(CancellationToken token)
+        public void DisconnectAll()
+        {
+            foreach (var client in clients)
+            {
+                Disconnect(client);
+            }
+            _listener.Stop();
+            
+        }
+
+        public async Task ServerMessages(CancellationToken token, CancellationTokenSource cts)
         {
             while (!token.IsCancellationRequested)
             {
-                string globalMsg = await Console.In.ReadLineAsync();
-                await Console.Out.WriteLineAsync(globalMsg);
+                string globalMsg = await Console.In.ReadLineAsync();                
                 if (globalMsg == "exit")
                 {
-                    return true;
+                    DisconnectAll();
+                    cts.Cancel();
                 }
-            }
-            return false;
+                else
+                {
+                    Console.WriteLine(globalMsg);
+                }
+            }            
         }
     }
 }
