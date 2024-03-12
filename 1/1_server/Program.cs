@@ -68,13 +68,7 @@ namespace _1_server
                     ClientInfo client = clientInfoFactory.CreateClientInfo(id++, tcpClient, this);
                     clients.Add(client);                    
                     Task.Run(() => ProcessClient(client, token));
-                    Task.Run(() => ServerMessages(token, cts));
-                    //bool res = Task.Run(() => ServerMessages(token)).Result;
-                    //if (res)
-                    //{
-                    //    cts.Cancel();                                                
-                    //}
-                    
+                    Task.Run(() => ServerMessages(token, cts));                    
                 }
             }
             catch
@@ -131,9 +125,9 @@ namespace _1_server
         {
             foreach (var client in clients)
             {
-                if (client.id != id) // если id клиента не равно id отправителя
+                if (client.id != id) 
                 {
-                    await client.writer.WriteLineAsync(message); //передача данных
+                    await client.writer.WriteLineAsync(message);
                     await client.writer.FlushAsync();
                 }
             }
